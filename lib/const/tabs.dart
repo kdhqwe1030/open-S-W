@@ -10,18 +10,18 @@ class TabInfo {
 const TABS = [
   TabInfo(
     icon: Icons.home,
-    label: "Home",
+    label: "홈",
   ),
   TabInfo(
     icon: Icons.pets_outlined,
-    label: "Dogwork",
+    label: "산책 기록",
   ),
   TabInfo(
-    icon: Icons.account_balance_outlined,
-    label: "Community",
+    icon: Icons.grade,
+    label: "랭킹",
   ),
   TabInfo(
-    icon: Icons.date_range_outlined,
-    label: "Calendar",
+    icon: Icons.date_range_rounded,
+    label: "캘린더",
   ),
 ];
