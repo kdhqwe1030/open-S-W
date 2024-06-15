@@ -234,11 +234,12 @@ class GoogleMapPage extends StatefulWidget {
 class _GoogleMapPageState extends State<GoogleMapPage> {
   final locationController = Location();
   late GoogleMapController mapController;
-
+  final TextEditingController titleController = TextEditingController();
+  final TextEditingController diaryController = TextEditingController();
   LatLng? currentPosition;
   List<LatLng> polylineCoordinates = [];
   Map<PolylineId, Polyline> polylines = {};
-
+  Color _borderColor = Colors.red;
   bool isWalking = false;
   DateTime? walkStartTime;
   double totalDistance = 0;
@@ -390,25 +391,26 @@ class _GoogleMapPageState extends State<GoogleMapPage> {
     showEndWalkDialog();
   }
 
-  void showEndWalkDialog() {
+  Future<void> showEndWalkDialog() async {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text("산책 종료"),
-          content: Text(
-            "${DateFormat('yyyy년 MM월 dd일 EEEE', 'ko').format(DateTime.now())}\n"
-            "${totalTime.inMinutes % 60}분 ${totalTime.inSeconds % 60}초 동안 ${totalDistance.toStringAsFixed(2)}미터 산책했습니다!\n\n"
-            "오늘의 산책 사진을 찍으시겠습니까?",
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                "${DateFormat('yyyy년 MM월 dd일 EEEE', 'ko').format(DateTime.now())}\n",
+                style: TextStyle(fontSize: 15),
+              ),
+              Text(
+                "${totalTime.inMinutes % 60}분 ${totalTime.inSeconds % 60}초 동안 ${totalDistance.toStringAsFixed(2)}미터\n 산책했습니다!\n\n",
+                style: TextStyle(fontSize: 22),
+              ),
+            ],
           ),
           actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                resetWalk();
-              },
-              child: Text("No"),
-            ),
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop(); // 다이얼로그를 닫고
@@ -416,11 +418,74 @@ class _GoogleMapPageState extends State<GoogleMapPage> {
                   // 카메라 켜짐
                   context,
                   MaterialPageRoute(builder: (context) => CameraAfterMap()),
-                );
+                ).then((_) {
+                  // 사진 찍기 후에 실행할 코드를 여기에 추가
+                  writeDiary();
+                  resetWalk();
+                });
               },
-              child: Text("Yes"),
+              child: Text("사진 찍기"),
             ),
           ],
+        );
+      },
+    );
+  }
+
+  Future<void> writeDiary() async {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter dialogSetState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10.0),
+              ),
+              title: Text(
+                '오늘의 산책 일기',
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: titleController,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(15)),
+                        borderSide: BorderSide(color: Colors.blue),
+                      ),
+                      labelText: '제목',
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return '제목을 입력하세요.';
+                      }
+                      return null;
+                    },
+                  ),
+                  SizedBox(height: 20), // 간격 추가
+                  TextFormField(
+                    controller: diaryController,
+                    maxLines: 3, // 여러 줄 입력 가능하도록 설정
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(15)),
+                        borderSide: BorderSide(color: Colors.blue),
+                      ),
+                      labelText: '내용',
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return '내용을 입력하세요.';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
+            );
+          },
         );
       },
     );
@@ -467,25 +532,88 @@ class _GoogleMapPageState extends State<GoogleMapPage> {
                     polylines: Set<Polyline>.of(polylines.values),
                   ),
             Positioned(
-              bottom: 50,
+              bottom: 95,
               left: 20,
               right: 20,
               child: ElevatedButton(
                 onPressed: isWalking ? endWalk : startWalk,
-                child: Text(isWalking ? "종료" : "시작"),
+                style: OutlinedButton.styleFrom(
+                    elevation: 10,
+                    backgroundColor: Color(0xFF64d7fa),
+                    side: BorderSide(
+                      color: Color(0xFF64d7fa),
+                    )),
+                child: Text(
+                  isWalking ? "종료" : "시작",
+                  style: TextStyle(color: Colors.white),
+                ),
               ),
             ),
             if (isWalking)
               Positioned(
-                top: 50,
-                left: 20,
-                right: 20,
+                bottom: 20,
+                left: MediaQuery.of(context).size.width * 0.05,
+                right: MediaQuery.of(context).size.width * 0.65,
                 child: Container(
+                  width: MediaQuery.of(context).size.width * 0.4,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(30),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.5),
+                        blurRadius: 7,
+                        offset: Offset(0, 1),
+                      ),
+                    ],
+                    border: Border.all(color: Color(0xFF64d7fa), width: 2),
+                  ),
                   padding: const EdgeInsets.all(8),
-                  color: Colors.white,
-                  child: Text(
-                    "산책 중: ${totalTime.inMinutes % 60}분 ${totalTime.inSeconds % 60}초 ${totalDistance.toStringAsFixed(2)}미터",
-                    style: const TextStyle(fontSize: 18),
+                  child: Column(
+                    children: [
+                      Text(
+                        "산책 시간",
+                        style: const TextStyle(fontSize: 18),
+                      ),
+                      Text(
+                        "${totalTime.inMinutes % 60}분 ${totalTime.inSeconds % 60}초",
+                        style: const TextStyle(fontSize: 18),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            if (isWalking)
+              Positioned(
+                bottom: 20,
+                left: MediaQuery.of(context).size.width * 0.45,
+                right: MediaQuery.of(context).size.width * 0.2,
+                child: Container(
+                  width: MediaQuery.of(context).size.width * 0.3,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(30),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.5),
+                        blurRadius: 7,
+                        offset: Offset(0, 1),
+                      ),
+                    ],
+                    border: Border.all(color: Color(0xFF64d7fa), width: 2),
+                  ),
+                  padding: const EdgeInsets.all(8),
+                  child: Column(
+                    children: [
+                      Text(
+                        "이동 거리",
+                        style: const TextStyle(fontSize: 18),
+                      ),
+                      Text(
+                        "${totalDistance.toStringAsFixed(2)} 미터",
+                        style: const TextStyle(fontSize: 18),
+                      ),
+                    ],
                   ),
                 ),
               ),

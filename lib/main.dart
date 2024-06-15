@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:with_pet/providers/current_post_provider.dart';
@@ -6,14 +7,27 @@ import 'package:with_pet/providers/on_off_provider.dart';
 import 'package:with_pet/providers/page_index_provider.dart';
 import 'package:with_pet/providers/user_info_provider.dart';
 import 'package:with_pet/screen/Join_screen.dart';
+import 'package:with_pet/screen/homePage/add_dog.dart';
 import 'package:with_pet/screen/home_screen.dart';
+import 'package:with_pet/screen/homePage/info_dog.dart';
+import 'package:with_pet/screen/service/databaseSvc.dart';
 import 'package:with_pet/screen/sign_in_screen.dart';
 import 'package:with_pet/screen/start_screen.dart';
 
 // 'pages' 디렉토리 안의 'google_map_page.dart' 파일을 가져옵니다. 이 파일에는 Google Maps를 보여주는 페이지가 정의되어 있을 것입니다.
+import 'firebase_options.dart';
 import 'screen/homePage/google_map_page.dart';
+import 'screen/service/databaseSvc.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  DatabaseSvc databaseSvc = DatabaseSvc();
+
   runApp(
     MultiProvider(
       providers: [
@@ -27,11 +41,14 @@ void main() {
         debugShowCheckedModeBanner: false,
         initialRoute: '/',
         routes: {
-          // '/': (BuildContext context) => SignInScreen(),
           '/': (BuildContext context) => StartScreen(),
           '/home': (BuildContext context) => HomeScreen(),
           '/signin': (BuildContext context) => SignInScreen(),
           '/signin/join': (BuildContext context) => JoinScreen(),
+          '/home/addDog': (BuildContext context) =>
+              AddDogScreen(), // 이 부분이 추가되었습니다
+          '/home/dogInfo': (BuildContext context) =>
+              DogInfoScreen(), // 이 부분이 추가되었습니다
         },
       ),
     ),

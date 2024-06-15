@@ -1,7 +1,12 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:with_pet/providers/events_provider.dart';
 import 'package:with_pet/providers/user_info_provider.dart';
@@ -30,6 +35,19 @@ class _CalendarPageState extends State<CalendarPage> {
   Color _color1 = Colors.grey;
   Color _color2 = Colors.grey;
   Color _color3 = Colors.grey;
+
+  // 이미지 업로드
+  File? _image; // 선택한 이미지를 담을 변수
+  final picker = ImagePicker(); // 이미지 피커 인스턴스 생성
+  final FirebaseStorage storage =
+      FirebaseStorage.instance; // Firebase Storage 인스턴스 생성
+  final FirebaseFirestore firestore =
+      FirebaseFirestore.instance; // Cloud Firestore 인스턴스 생성
+
+  final FirebaseAuth _auth =
+      FirebaseAuth.instance; // Firebase Auth 인스턴스 생성, 회원 구분해서 db에 넣을 때 사용
+
+  int imgflag = 0;
 
   @override
   void initState() {
@@ -149,7 +167,7 @@ class _CalendarPageState extends State<CalendarPage> {
                     shape: BoxShape.circle,
                   ),
                   weekendTextStyle:
-                      TextStyle(color: Colors.black), // 여기서 주말 날짜 색상 변경 가능
+                      TextStyle(color: Color(0xfff26457)), // 여기서 주말 날짜 색상 변경 가능
                 ),
                 calendarBuilders: CalendarBuilders(
                   markerBuilder: (context, day, events) {
@@ -168,22 +186,6 @@ class _CalendarPageState extends State<CalendarPage> {
                                     size: 10.sp,
                                     Icons.pets_outlined,
                                     color: Colors.red,
-                                  ));
-                            } else if (key['iconIndex'] == 2) {
-                              return Container(
-                                  margin: EdgeInsets.only(top: 40.h),
-                                  child: Icon(
-                                    size: 10.sp,
-                                    Icons.rice_bowl_outlined,
-                                    color: Colors.yellow,
-                                  ));
-                            } else if (key['iconIndex'] == 3) {
-                              return Container(
-                                  margin: EdgeInsets.only(top: 40.h),
-                                  child: Icon(
-                                    size: 10.sp,
-                                    Icons.water_drop_outlined,
-                                    color: Colors.blue,
                                   ));
                             }
                           });
@@ -233,70 +235,59 @@ class _CalendarPageState extends State<CalendarPage> {
                             borderRadius: BorderRadius.circular(10.0),
                           ),
                           child: ListTile(
-                            onLongPress: () {
-                              context
-                                  .read<EventsProvider>()
-                                  .deleteEvents(_selectedDay, index);
-                              saveData();
+                            onTap: () {
+                              showDialog(
+                                context: context,
+                                builder: (BuildContext context) {
+                                  return AlertDialog(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10.0),
+                                    ),
+                                    title: Text(
+                                      '일기 제목',
+                                      // style: TextStyle(fontSize: 15.sp),
+                                    ),
+                                    content: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                            "${_selectedDay!.year}년 ${_selectedDay!.month}월 ${_selectedDay!.day}일"),
+                                        _previewSelectedImage(),
+                                        Text('오늘 산책이 어쩌구 저쩌구'),
+                                        SizedBox(
+                                            height:
+                                                16.h), // 선택한 이미지를 보여주는 위젯 호출
+                                      ],
+                                    ),
+                                    actions: <Widget>[
+                                      TextButton(
+                                        onPressed: () {
+                                          Navigator.pop(context);
+                                        },
+                                        child: Text('닫기',
+                                            style: TextStyle(fontSize: 15.sp)),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
                             },
-                            title: Text('${event_icon_index['contents']}'),
+                            onLongPress: () {
+                              setState(() {
+                                context
+                                    .read<EventsProvider>()
+                                    .deleteEvents(_selectedDay, index);
+                                saveData();
+                                _selectedEvents.value = _getEventsForDay(
+                                    _selectedDay!); // 일정 삭제 후 _selectedEvents 업데이트
+                              });
+                            },
+                            title: Text('일기 제목'),
                             trailing: Icon(
                               Icons.pets_outlined,
                               color: Colors.red,
-                            ),
-                          ),
-                        );
-                      }
-                      if (event_icon_index['iconIndex'] == 2) {
-                        return Container(
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 12.0,
-                            vertical: 4.0,
-                          ),
-                          decoration: BoxDecoration(
-                            border: Border.all(),
-                            borderRadius: BorderRadius.circular(12.0),
-                          ),
-                          child: ListTile(
-                            onLongPress: () {
-                              setState(() {
-                                context
-                                    .read<EventsProvider>()
-                                    .deleteEvents(_selectedDay, index);
-                                saveData();
-                              });
-                            },
-                            title: Text('${event_icon_index['contents']}'),
-                            trailing: Icon(
-                              Icons.rice_bowl_outlined,
-                              color: Colors.yellow,
-                            ),
-                          ),
-                        );
-                      }
-                      if (event_icon_index['iconIndex'] == 3) {
-                        return Container(
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 12.0,
-                            vertical: 4.0,
-                          ),
-                          decoration: BoxDecoration(
-                            border: Border.all(),
-                            borderRadius: BorderRadius.circular(12.0),
-                          ),
-                          child: ListTile(
-                            onLongPress: () {
-                              setState(() {
-                                context
-                                    .read<EventsProvider>()
-                                    .deleteEvents(_selectedDay, index);
-                                saveData();
-                              });
-                            },
-                            title: Text('${event_icon_index['contents']}'),
-                            trailing: Icon(
-                              Icons.water_drop_outlined,
-                              color: Colors.blue,
                             ),
                           ),
                         );
@@ -307,262 +298,288 @@ class _CalendarPageState extends State<CalendarPage> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          showDialog(
-              context: context,
-              builder: (BuildContext context) {
-                return StatefulBuilder(builder:
-                    (BuildContext context, StateSetter dialogSetState) {
-                  return AlertDialog(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10.0),
-                    ),
-                    title: Text('일정 추가하기',
-                        style: TextStyle(
-                          fontSize: 15.sp,
-                        )),
-                    actions: <Widget>[
-                      Container(
-                          margin: EdgeInsets.only(
-                              left: 0.w, right: 0.w), // 일정 내용 입력 칸 양옆 여백
-                          child: CustomTextField(
-                              text: '일정 내용',
-                              hintText: '내용을 입력하세요',
-                              controller: _textEditingController)),
-                      SizedBox(
-                        height: 20.h,
-                      ),
-                      Container(
-                          alignment: Alignment.center,
-                          margin: EdgeInsets.only(
-                              left: 0.w,
-                              right: 0.w,
-                              top: 30.w), // 마커 선택 안내 문장 위치
-                          child: Text('캘린더에 표시할 마커를 선택하세요',
-                              style: TextStyle(
-                                fontSize: 13.sp,
-                              ))),
-                      SizedBox(
-                        height: 20.h,
-                      ),
-                      Center(
-                        child: Container(
-                          alignment: Alignment.center,
-                          width: 500.w, // 마커 박스 가로 길이
-                          height: 100.h, // 마커 박스 세로 길이
-                          decoration: BoxDecoration(
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.grey.withOpacity(0.5),
-                                  spreadRadius: 0,
-                                  blurRadius: 5.0,
-                                  offset: Offset(
-                                      0, 10), // changes position of shadow
-                                ),
-                              ],
-                              color: Color(0x415d5d5d),
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(10))),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              GestureDetector(
-                                onTap: () {
-                                  if (_color2 == Colors.grey &&
-                                      _color3 == Colors.grey) {
-                                    dialogSetState(() {
-                                      _color1 = (_color1 == Colors.red)
-                                          ? Colors.grey
-                                          : Colors.red;
-                                    });
-                                    if (_color1 == Colors.grey) {
-                                      selectMarker = 0;
-                                    } else {
-                                      selectMarker = 1;
-                                    }
-                                  }
-                                },
-                                child: Container(
-                                  width: 65.w,
-                                  height: 65.h,
-                                  decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.all(
-                                          Radius.circular(10))),
-                                  child: Icon(
-                                    Icons.pets_outlined,
-                                    color: _color1,
-                                    size: 50.sp,
-                                  ),
-                                ),
-                              ),
-                              SizedBox(
-                                width: 10.w,
-                              ),
-                              GestureDetector(
-                                onTap: () {
-                                  if (_color1 == Colors.grey &&
-                                      _color3 == Colors.grey) {
-                                    dialogSetState(() {
-                                      _color2 = _color2 == Colors.yellow
-                                          ? Colors.grey
-                                          : Colors.yellow;
-                                    });
-                                    if (_color2 == Colors.grey) {
-                                      selectMarker = 0;
-                                    } else {
-                                      selectMarker = 2;
-                                    }
-                                  }
-                                },
-                                child: Container(
-                                  width: 65.w,
-                                  height: 65.h,
-                                  decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.all(
-                                          Radius.circular(10))),
-                                  child: Icon(
-                                    Icons.rice_bowl_outlined,
-                                    color: _color2,
-                                    size: 50.sp,
-                                  ),
-                                ),
-                              ),
-                              SizedBox(
-                                width: 10.w,
-                              ),
-                              GestureDetector(
-                                onTap: () {
-                                  if (_color1 == Colors.grey &&
-                                      _color2 == Colors.grey) {
-                                    dialogSetState(() {
-                                      _color3 = _color3 == Colors.blue
-                                          ? Colors.grey
-                                          : Colors.blue;
-                                    });
-                                    if (_color3 == Colors.grey) {
-                                      selectMarker = 0;
-                                    } else {
-                                      selectMarker = 3;
-                                    }
-                                  }
-                                },
-                                child: Container(
-                                  width: 65.w,
-                                  height: 65.h,
-                                  decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.all(
-                                          Radius.circular(10))),
-                                  child: Icon(
-                                    Icons.water_drop_outlined,
-                                    color: _color3,
-                                    size: 50.sp,
-                                  ),
-                                ),
-                              ),
-                            ],
+      floatingActionButton: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FloatingActionButton(
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (BuildContext context) {
+                  return StatefulBuilder(
+                    builder:
+                        (BuildContext context, StateSetter dialogSetState) {
+                      return AlertDialog(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10.0),
+                        ),
+                        title: Text(
+                          '일정 추가하기',
+                          style: TextStyle(
+                            fontSize: 15.sp,
                           ),
                         ),
-                      ),
-                      SizedBox(
-                        height: 10.h,
-                      ),
-                      TextButton(
-                          onPressed: () {
-                            if (selectMarker != 0) {
-                              if (_textEditingController.text == '') {
-                                showDialog(
+                        actions: <Widget>[
+                          Container(
+                            margin: EdgeInsets.only(
+                                left: 0.w, right: 0.w), // 일정 내용 입력 칸 양옆 여백
+                            child: CustomTextField(
+                              text: '일정 내용',
+                              hintText: '내용을 입력하세요',
+                              controller: _textEditingController,
+                            ),
+                          ),
+                          SizedBox(
+                            height: 20.h,
+                          ),
+                          _previewSelectedImage(), // 선택한 이미지를 보여주는 위젯 호출
+                          Container(
+                            alignment: Alignment.center,
+                            margin: EdgeInsets.only(
+                                left: 0.w,
+                                right: 0.w,
+                                top: 30.w), // 마커 선택 안내 문장 위치
+                            child: Text(
+                              '캘린더에 표시할 마커를 선택하세요',
+                              style: TextStyle(
+                                fontSize: 13.sp,
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            height: 20.h,
+                          ),
+                          Center(
+                            child: Container(
+                              alignment: Alignment.center,
+                              width: 500.w, // 마커 박스 가로 길이
+                              height: 100.h, // 마커 박스 세로 길이
+                              decoration: BoxDecoration(
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.grey.withOpacity(0.5),
+                                    spreadRadius: 0,
+                                    blurRadius: 5.0,
+                                    offset: Offset(
+                                        0, 10), // changes position of shadow
+                                  ),
+                                ],
+                                color: Color(0x415d5d5d),
+                                borderRadius:
+                                    BorderRadius.all(Radius.circular(10)),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  GestureDetector(
+                                    onTap: () {
+                                      if (_color2 == Colors.grey &&
+                                          _color3 == Colors.grey) {
+                                        dialogSetState(() {
+                                          _color1 = (_color1 == Colors.red)
+                                              ? Colors.grey
+                                              : Colors.red;
+                                        });
+                                        if (_color1 == Colors.grey) {
+                                          selectMarker = 0;
+                                        } else {
+                                          selectMarker = 1;
+                                        }
+                                      }
+                                    },
+                                    child: Container(
+                                      width: 65.w,
+                                      height: 65.h,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.all(
+                                            Radius.circular(10)),
+                                      ),
+                                      child: Icon(
+                                        Icons.pets_outlined,
+                                        color: _color1,
+                                        size: 50.sp,
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: 10.w,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            height: 10.h,
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              if (selectMarker != 0) {
+                                if (_textEditingController.text == '') {
+                                  showDialog(
                                     context: context,
                                     builder: (BuildContext context) =>
                                         AlertDialog(
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(10.0),
-                                          ),
-                                          content: Text('\n일정 내용을 추가해 주세요.'),
-                                          actions: <Widget>[
-                                            TextButton(
-                                                onPressed: () =>
-                                                    Navigator.pop(context),
-                                                child: Text('Ok')),
-                                          ],
-                                        ));
-                              } else {
-                                var maxIconCount = context
-                                    .read<EventsProvider>()
-                                    .setEvents(
-                                        _selectedDay,
-                                        _textEditingController.text,
-                                        selectMarker);
-                                if (maxIconCount == '초과') {
-                                  showDialog(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10.0),
+                                      ),
+                                      content: Text('\n일정 내용을 추가하지 않았습니다.'),
+                                      actions: <Widget>[
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context),
+                                          child: Text('Ok'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                } else {
+                                  var maxIconCount =
+                                      context.read<EventsProvider>().setEvents(
+                                            _selectedDay,
+                                            _textEditingController.text,
+                                            selectMarker,
+                                          );
+                                  if (maxIconCount == '초과') {
+                                    showDialog(
                                       context: context,
                                       builder: (BuildContext context) =>
                                           AlertDialog(
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(10.0),
-                                            ),
-                                            title: Text('일정 초과'),
-                                            content:
-                                                Text('일정에 추가 가능한 개수는 3개입니다'),
-                                            actions: <Widget>[
-                                              TextButton(
-                                                  onPressed: () =>
-                                                      Navigator.pop(context),
-                                                  child: Text('Ok')),
-                                            ],
-                                          ));
-                                } else {
-                                  _color1 = Colors.grey;
-                                  _color2 = Colors.grey;
-                                  _color3 = Colors.grey;
-                                  _textEditingController.clear();
-                                  selectMarker = 0;
-                                  saveData();
-                                  Navigator.pushReplacementNamed(
-                                      context, '/pageRouter');
-                                }
-                              }
-                            } else {
-                              showDialog(
-                                  context: context,
-                                  builder: (BuildContext context) =>
-                                      AlertDialog(
                                         shape: RoundedRectangleBorder(
                                           borderRadius:
                                               BorderRadius.circular(10.0),
                                         ),
-                                        content: Text(
-                                            '\n마커를 지정하지 않았습니다.\n마커를 지정해주세요.'),
+                                        title: Text('입력 초과'),
+                                        content: Text('일정에 추가 가능한 개수는 3개입니다'),
                                         actions: <Widget>[
                                           TextButton(
-                                              onPressed: () =>
-                                                  Navigator.pop(context),
-                                              child: Text('Ok')),
+                                            onPressed: () =>
+                                                Navigator.pop(context),
+                                            child: Text('Ok'),
+                                          ),
                                         ],
-                                      ));
-                            }
-                          },
-                          child: Text(
-                            'Ok',
-                            style: TextStyle(fontSize: 15.sp),
-                          )),
-                    ],
+                                      ),
+                                    );
+                                  } else {
+                                    setState(() {
+                                      _color1 = Colors.grey;
+                                      _color2 = Colors.grey;
+                                      _color3 = Colors.grey;
+                                      _textEditingController.clear();
+                                      selectMarker = 0;
+                                      saveData();
+                                      _selectedEvents.value = _getEventsForDay(
+                                          _selectedDay!); // 일정 추가 후 _selectedEvents 업데이트
+                                    });
+                                    Navigator.pop(context); // 다이얼로그 닫기
+                                  }
+                                }
+                              } else {
+                                showDialog(
+                                  context: context,
+                                  builder: (BuildContext context) =>
+                                      AlertDialog(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10.0),
+                                    ),
+                                    content:
+                                        Text('\n마커를 지정하지 않았습니다.\n마커를 지정해주세요.'),
+                                    actions: <Widget>[
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        child: Text('Ok'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }
+                            },
+                            child: Text(
+                              'Ok',
+                              style: TextStyle(fontSize: 15.sp),
+                            ),
+                          ),
+                          // TextButton(
+                          //   onPressed: () async {
+                          //     await _pickImage();
+                          //     dialogSetState(() {});
+                          //     _uploadImage();
+                          //   },
+                          //   child: Text(
+                          //     '이미지 업로드',
+                          //     style: TextStyle(fontSize: 15.sp),
+                          //   ),
+                          // ),
+                        ],
+                      );
+                    },
                   );
-                });
-              });
-        },
-        backgroundColor: const Color(0xff5d5d5d),
-        child: Icon(
-          Icons.create,
-          color: Colors.white,
-          size: 30.sp,
-        ),
+                },
+              );
+            },
+            backgroundColor: const Color(0xff5d5d5d),
+            child: Icon(
+              Icons.create,
+              color: Colors.white,
+              size: 30.sp,
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  Future<void> _pickImage() async {
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      _image = File(pickedFile.path);
+    }
+  }
+
+  Future<void> _uploadImage() async {
+    if (_image == null) {
+      print('No image selected.');
+      return;
+    }
+
+    try {
+      String fileName = _image!.path.split('/').last;
+
+      var ref = await storage.ref().child('uploads/$fileName');
+      var uploadTask = ref.putFile(_image!);
+
+      final snapshot = await uploadTask.whenComplete(() => {});
+      final url = await snapshot.ref.getDownloadURL();
+
+      // 현재 로그인한 사용자의 UID 가져오기
+      User? user = _auth.currentUser;
+      String? uid = user?.uid;
+
+      // 현재 시간을 업로드 날짜로 설정
+      DateTime now = DateTime.now();
+
+      // Firestore에 이미지 정보 저장
+      await firestore.collection('Images').add({
+        'url': url,
+        'userId': uid,
+        'uploadTime': now,
+      });
+
+      print('Uploaded successfully');
+    } catch (e) {
+      print('Failed to upload: $e');
+    }
+  }
+
+  Widget _previewSelectedImage() {
+    return _image == null
+        ? Text('No image selected.')
+        : Container(
+            width: 100.w, // 원하는 너비로 조정
+            height: 100.h, // 원하는 높이로 조정
+            child: Image.file(_image!),
+          );
   }
 }
